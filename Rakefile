@@ -36,7 +36,7 @@ DOCSET_VERSION = "1.1.0"
 USING_XCODE_6 = `xcrun xcodebuild -version | head -n 1`.start_with?("Xcode 6")
 
 if USING_XCODE_6
-  SUPPORTED_SDKS = [ "7.1", "8.1" ]
+  SUPPORTED_SDKS = [ "7.1", "8.1", "8.2" ]
 else
   SUPPORTED_SDKS = [ "6.1", "7.1" ]
 end
