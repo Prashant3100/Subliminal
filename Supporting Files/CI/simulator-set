@@ -25,7 +25,12 @@
 
 print_usage_and_fail () {
     echo """
-usage: simulator-set [--device <device>] [--version <sdk_version>] [--reset]
+usage: simulator-set [--id <udid>] [--device <device>] [--version <sdk_version>] [--reset]
+
+    --id <udid>             A unique identifier for a simulator, provided via \`simctl\`.
+                            If this value is provided, neither \`--device\` nor \`--version\`
+                            need to be, and those values are ignored if present.
+                            Requires Xcode 6.
 
     --device <device>       A device type like \"iPhone\".
                             Acceptable types are listed in the iOS Simulator's 
@@ -65,7 +70,7 @@ case $1 in
         shift 1;;
 
     # Set argument, wait for value
-    --device|--version)
+    --device|--version|--id)
         if [[ -n "$CURRENT_ARG" ]]; then
             echo "Error: Missing value for argument \"$CURRENT_ARG\""
             print_usage_and_fail
@@ -104,7 +109,10 @@ fi
 
 
 ### Determine platform defaults
-if [[ "$(xcrun xcodebuild -version | head -n 1)" == "Xcode 6"* ]]; then
+[[ "$(xcrun xcodebuild -version | head -n 1)" == "Xcode 6"* ]]
+IS_XCODE6=$?
+
+if [ $IS_XCODE6 ]; then
     SIMULATOR_NAME="iOS Simulator"
     CURRENT_DEVICE_UDID=`defaults read com.apple.iphonesimulator CurrentDeviceUDID 2> /dev/null`
 else
@@ -119,7 +127,14 @@ sleep 1.0
 
 ### Set properties
 
-if [[ -n "$CURRENT_DEVICE_UDID" ]]; then
+if [[ -n "$ID" ]]; then
+    if [ ! $IS_XCODE6 ]; then
+        echo "Error: Cannot use \`--id\` with Xcode versions before 6."
+        print_usage_and_fail
+    fi
+    defaults write com.apple.iphonesimulator CurrentDeviceUDID "$ID"
+    CURRENT_DEVICE_UDID="$ID"
+elif [ $IS_XCODE6 ]; then
     # We need to translate the desired device and version into a UDID
     # filling in the current values if device and/or version are not specified
     CURRENT_DEVICE_SPECIFICATION=`xcrun instruments -s devices | grep "$CURRENT_DEVICE_UDID"`
