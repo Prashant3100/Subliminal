@@ -256,6 +256,39 @@ if [[ -n "$SIM_ID" && ! $IS_XCODE6 ]]; then
 	print_usage_and_fail
 fi
 
+device_string() {
+	if [[ -n "$HW_ID" ]]; then
+		echo "$HW_ID"
+	elif [[ -n "$SIM_ID" ]]; then
+		echo "$SIM_ID"
+	else
+		if [ $IS_XCODE6 ]; then
+			echo "$SIM_DEVICE ($SIM_VERSION Simulator)"
+		else
+			echo "$SIM_DEVICE - Simulator - iOS $SIM_VERSION"
+		fi
+	fi
+}
+
+# Set the simulator version if necessary
+if [[ -n "$SIM_DEVICE" ]]; then
+	if [[ -n "$SIM_VERSION" ]]; then
+		echo "- Setting the version to $SIM_VERSION"
+	else
+		SIM_VERSION=`xcrun xcodebuild -showsdks | grep "iphonesimulator" | sort -r | head -n 1 | sed -E 's|^.*iphonesimulator(.*)$|\1|'`
+		echo "- Setting the version to $SIM_VERSION (Simulator version not specified--defaulting to latest simulator installed)"
+	fi
+fi
+
+# Check if the provided device is even valid
+instruments -s devices | grep "$(device_string)" > /dev/null 2>&1
+device_available=$?
+if [[ $device_available -ne 0 ]]; then
+	echo "\nInvalid device identifier $(device_string)\n"
+	# No need to print usage here
+	exit 1
+fi
+
 # resets the simulator, or uninstalls the app from the device 
 # (the best that we can do, given device support
 # --also probably better not to be as destructive as a reset on a device)
@@ -474,13 +507,6 @@ if [[ -n "$SIM_DEVICE" || -n "$SIM_ID" ]]; then
 	# Configure the simulator's properties
 	echo "\nConfiguring the simulator for testing..."
 
-	if [[ -n "$SIM_VERSION" ]]; then
-		echo "- Setting the version to $SIM_VERSION"
-	else
-		SIM_VERSION=`xcrun xcodebuild -showsdks | grep "iphonesimulator" | sort -r | head -n 1 | sed -E 's|^.*iphonesimulator(.*)$|\1|'`
-		echo "- Setting the version to $SIM_VERSION (Simulator version not specified--defaulting to latest simulator installed)"
-	fi
-
 	echo "- Resetting simulator content and settings"
 	if [[ -n "$SIM_DEVICE" ]]; then
 		"$SCRIPT_DIR/simulator-set" --device "$SIM_DEVICE" --version "$SIM_VERSION" --reset
@@ -538,20 +564,6 @@ launch_instruments () {
 
 	local timeout_arg=`[[ -n "$TIMEOUT" ]] && echo "-l $TIMEOUT" || echo ""`
 
-	device_string() {
-		if [[ -n "$HW_ID" ]]; then
-			echo "$HW_ID"
-		elif [[ -n "$SIM_ID" ]]; then
-			echo "$SIM_ID"
-		else
-			if [ $IS_XCODE6 ]; then
-				echo "$SIM_DEVICE ($SIM_VERSION Simulator)"
-			else
-				echo "$SIM_DEVICE - Simulator - iOS $SIM_VERSION"
-			fi
-		fi
-	}
-	
 	"$SCRIPT_DIR/subliminal-instrument.sh"\
 		-D "$TRACE_FILE"\
 		$timeout_arg\
